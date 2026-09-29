@@ -17,20 +17,19 @@ data class LoaderConfigData(val gameConfigPath: String)
 @Serializable
 data class GameConfig(val classPath : List<String>, val mainClass : String, val vmArgs : List<String>)
 
-class Polyloader {
-    companion object {
-        const val DEFAULT_CONFIG_NAME = "Polyloader"
-        const val DEFAULT_LOG_NAME = "last_log"
-        const val LOGGER_FORMAT = $$"[%1$tH:%1$tM:%1$tS] %4$s: %5$s%6$s%n" // [hh:mm:ss] LOG_LEVEL: msg STACKTRACE
-        val LOCALE: Locale = Locale.ENGLISH
-        val LOGGER: Logger = Logger.getLogger(this::class.java.name)
-        // We are typically in '../Polyloader/jre/bin/' path
-        // Lets get just '../Polyloader/' directory
-        val polyloaderDirectory : File = Paths.get("").toAbsolutePath().parent.parent.toFile()
-        init {
-            // Applies format and locale changes here + creates log.txt in launcher path
-            initLogger()
-        }
+object Polyloader {
+    const val DEFAULT_CONFIG_NAME = "Polyloader"
+    const val DEFAULT_LOG_NAME = "last_log"
+    const val LOGGER_FORMAT = $$"[%1$tH:%1$tM:%1$tS] %4$s: %5$s%6$s%n" // [hh:mm:ss] LOG_LEVEL: msg STACKTRACE
+    val LOCALE: Locale = Locale.ENGLISH
+    val LOGGER: Logger = Logger.getLogger(this::class.java.name)
+    // We are typically in '../Polyloader/jre/bin/' path
+    // Lets get just '../Polyloader/' directory
+    val polyloaderDirectory : File = Paths.get("").toAbsolutePath().parent.parent.toFile()
+    init {
+        // Applies format and locale changes here + creates log.txt in launcher path
+        initLogger()
+    }
 
         @JvmStatic
         fun main(args: Array<String>) {
