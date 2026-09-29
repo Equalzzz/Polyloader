@@ -1,0 +1,20 @@
+[versions]
+# I have Gradle 9.0.0, which supports 2.2.0 max... It ain't that important anyway
+kotlin = "2.3.0"
+java = "21"
+# Valid values:
+# - latest: depend on the latest release of mindustry
+# - be: depend on the very latest commit of mindustry
+# - v<number>: depend on a specific version
+mindustry = "v160"
+shadow = "9.3.0"
+serialization-plugin = "2.4.20"
+serialization-library = "1.11.0"
+
+[plugins]
+kotlin-jvm = {id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+shadow = {id = "com.gradleup.shadow", version.ref = "shadow"}
+serialization = {id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "serialization-plugin"}
+
+[libraries]
+serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization-library" }
