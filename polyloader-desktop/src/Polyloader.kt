@@ -5,12 +5,10 @@ import kotlinx.serialization.json.*
 import java.io.File
 import java.io.IOException
 import java.nio.file.Paths
+import java.util.*
 import java.util.Locale
-import java.util.logging.FileHandler
-import java.util.logging.Level
-import java.util.logging.Logger
-import java.util.logging.SimpleFormatter
-import java.util.logging.StreamHandler
+import java.util.logging.*
+
 
 @Serializable
 data class PolyloaderConfigData(val mindustryConfigFile: String = "__BLANK__")
@@ -30,6 +28,8 @@ object Polyloader {
     // We are typically in '../Polyloader/jre/bin/' path
     // Lets get just '../Polyloader/' directory
     val polyloaderDirectory : File = Paths.get("").toAbsolutePath().parent.parent.toFile()
+    val IS_WINDOWS : Boolean = System.getProperty("os.name").lowercase(LOCALE).contains("win")
+    val IS_MAC : Boolean = System.getProperty("os.name").lowercase(LOCALE).contains("mac")
 
     init {
         // Applies format and locale changes here + creates log.txt in launcher path
@@ -49,10 +49,39 @@ object Polyloader {
         // Finds a valid config with all the info about where mindustry is
         polyloaderConfig = getLoaderConfig(polyloaderDirectory)
 
-        //val polyloaderConfigHash = polyloaderConfig.data.hashCode()
-
         // Finds a valid config with all data on how to launch mindustry
         gameConfig = getGameConfig(polyloaderConfig)
+
+        // tries to cache paths and actualize data in polyloader config
+        simplifyLoaderConfigData(polyloaderConfig, gameConfig)
+
+        // TODO:
+        // 0. Find mindustry setting and apply them before opening (like ui scale, it requires restart for some reason)
+        // 1. Find mods folder
+        // 2. Get all mod mixins configs
+        // 3. Apply mixins
+        // 3.5? Apply access wideners
+        // 4. Open the game
+        //
+        // minor things:
+        // Add icon and a name to the java process
+        // Make a way to tell apart modified and unmodified versions (apart from adding THE CORE)
+
+        // That doesn't really do what I wanted
+        val cmd = ArrayList<String>(8)
+        cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java" + (if (IS_WINDOWS) ".exe" else ""))
+        if (IS_MAC)
+            cmd.add("-XstartOnFirstThread") // still don't know what it does
+        gameConfig.data.vmArgs.forEach { cmd.add(it.trim()) }
+        cmd.add("-jar")
+        cmd.add(File(gameConfig.file.absolutePath).parentFile.resolve(gameConfig.data.classPath.first()).absolutePath)
+        LOGGER.info("Assembled a command:\n${cmd.joinToString(" ")}")
+        ProcessBuilder(cmd)
+            .redirectOutput(ProcessBuilder.Redirect.INHERIT)
+            .redirectError(ProcessBuilder.Redirect.INHERIT)
+            .start()
+
+
     }
 
     // Finds or creates semi-valid launcher config
@@ -128,11 +157,13 @@ object Polyloader {
                         """
                         Could not find game config file anywhere. Can't find the game without it
                         HOW TO FIX:
-                        0. Find and remember path to Mindustry config file (generally called Mindustry.json, and sits inside /Mindustry/ folder, along with game's .exe file)
-                        1. Go to ${polyloaderDirectory.absolutePath}
-                        2. Open ${polyloaderConfig.file.name}
-                        3. Write a correct path to game's config file in a "${polyloaderConfig.data::mindustryConfigFile.name}" property
-                        4. Relaunch Polyloader
+                            Relocate ${polyloaderDirectory.name} directory closer to Mindustry folder
+                        OR
+                            0. Find and remember path to Mindustry config file (generally called Mindustry.json, and sits inside /Mindustry/ folder, along with game's .exe file)
+                            1. Go to ${polyloaderDirectory.absolutePath}
+                            2. Open ${polyloaderConfig.file.name}
+                            3. Write a correct path to game's config file in a "${polyloaderConfig.data::mindustryConfigFile.name}" property
+                            4. Relaunch Polyloader
                         Searched in:
                         ${gameConfigPath.absolutePath}
                         ${polyloaderDirectory.absolutePath}
@@ -141,6 +172,8 @@ object Polyloader {
                         """
                     LOGGER.log(Level.SEVERE, msg)
                     error(msg)
+                    // TODO:
+                    // Display a dialog box, informing on how to fix the issue
                 }
             }
         }
@@ -148,6 +181,17 @@ object Polyloader {
         return gameConfig
     }
 
+    private fun simplifyLoaderConfigData(loaderConfig: JsonConfig<PolyloaderConfigData>, gameConfig: JsonConfig<GameConfigData>) {
+        val previousData = loaderConfig.data
+        val currentData = PolyloaderConfigData(gameConfig.file.absolutePath)
+        if (currentData != previousData && loaderConfig.file.canWrite()) {
+            val json = Json {
+                ignoreUnknownKeys = true
+                prettyPrint = true
+            }
+            loaderConfig.file.writeText(json.encodeToString(PolyloaderConfigData.serializer(), currentData))
+        }
+    }
 
     private fun initLogger() {
         Locale.setDefault(LOCALE)
