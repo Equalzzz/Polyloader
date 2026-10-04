@@ -6,6 +6,7 @@ java = "21"
 # - latest: depend on the latest release of mindustry
 # - be: depend on the very latest commit of mindustry
 # - v<number>: depend on a specific version
+# noinspection UnusedVersionCatalogEntry
 mindustry = "v160"
 shadow = "9.3.0"
 serialization-plugin = "2.4.20"
