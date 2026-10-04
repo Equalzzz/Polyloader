@@ -27,7 +27,8 @@ tasks.jar {
     dependsOn(tasks.shadowJar)
 }
 
-tasks.register<Copy>("copyJar") {
+// Custom task for copying resulting shadow jar in some location FOR DEBUGGING ONLY
+val copyJar = tasks.register<Copy>("copyJar") {
     dependsOn(tasks.shadowJar)
     from(tasks.shadowJar)
     val dir = properties["polyloader-directory"] as String + "/jre"
