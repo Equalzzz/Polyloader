@@ -10,12 +10,8 @@ dependencies {
     api(libs.mixin)
 }
 
-kotlin {
-    sourceSets {
-        main {
-            kotlin.srcDir("src")
-        }
-    }
+sourceSets.main {
+    kotlin.srcDir("src")
 }
 
 tasks.shadowJar {
