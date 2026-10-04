@@ -8,7 +8,6 @@ val libs = versionCatalogs.find("libs").get()
 val version = libs.findVersion("mindustry").get().toString()
 println(version)
 repositories {
-    mavenCentral()
     //Downloads the dependencies JAR file from Mindustry releases; does not use any real repository. Surprisingly, this is the most reliable option.
     ivy {
         url = URI("https://github.com/")
@@ -31,6 +30,7 @@ repositories {
                 includeVersion("Anuken", "Mindustry", version)
         }
     }
+    maven("https://repo.spongepowered.org/repository/maven-public/")
 }
 
 dependencies {
