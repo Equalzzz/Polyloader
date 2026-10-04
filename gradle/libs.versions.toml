@@ -12,6 +12,8 @@ shadow = "9.3.0"
 serialization-plugin = "2.4.20"
 serialization-library = "1.11.0"
 mixin = "0.8.3"
+log4j = "2.26.1"
+guava = "33.7.2-jre"
 
 [plugins]
 kotlin-jvm = {id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -20,4 +22,7 @@ serialization = {id = "org.jetbrains.kotlin.plugin.serialization", version.ref =
 
 [libraries]
 serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization-library" }
-mixin = {module = "org.spongepowered:mixin", version.ref = "mixin" }
+mixin = { module = "org.spongepowered:mixin", version.ref = "mixin" }
+log4j-api = { group = "org.apache.logging.log4j", name = "log4j-api", version.ref = "log4j"}
+log4j-core = { group = "org.apache.logging.log4j", name = "log4j-core", version.ref = "log4j"}
+guava-jre = { module = "com.google.guava:guava", version.ref = "guava" }
