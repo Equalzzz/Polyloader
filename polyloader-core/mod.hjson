@@ -1,0 +1,14 @@
+displayName: "Kotlin Mod Template"
+
+#the internal name of your mod
+name: "polyloader-core"
+
+author: "[pink]Isaac Mercer"
+
+main: "org.im.polyloader.PolyloaderCore"
+
+description: "Polyloader core, that adds a lot of cool stuff for every aspect of interaction with mods"
+
+version: 1.0
+
+minGameVersion: 160

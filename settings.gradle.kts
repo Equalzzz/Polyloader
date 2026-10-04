@@ -24,3 +24,4 @@ plugins {
 rootProject.name = "polyloader"
 
 include("polyloader-desktop")
+include("polyloader-core")

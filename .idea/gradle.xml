@@ -21,6 +21,7 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/buildSrc" />
+            <option value="$PROJECT_DIR$/polyloader-core" />
             <option value="$PROJECT_DIR$/polyloader-desktop" />
           </set>
         </option>
