@@ -7,6 +7,7 @@ plugins {
 
 dependencies {
     implementation(libs.serialization)
+    api(libs.mixin)
 }
 
 kotlin {
