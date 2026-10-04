@@ -1,19 +1,29 @@
 plugins {
     kotlin("jvm")
     id("common-convention-plugin")
-    alias(libs.plugins.shadow)
-    alias(libs.plugins.serialization)
+    alias(libs.plugins.shadow) // for shadowJar task
+    alias(libs.plugins.serialization) // for automatic 'serializer()' code gen
 }
 
 dependencies {
-    implementation(libs.serialization)
-    api(libs.mixin)
+    implementation(libs.serialization) // json manipulation
+
+    // Mixin dependencies
+    api(libs.mixin) // actually don't know if it should be api or implementation... todo find out
+    implementation(libs.log4j.api)
+    runtimeOnly(libs.log4j.core)
+    implementation(libs.guava.jre)
 }
 
+// this make folder trees shorter
 sourceSets.main {
+    // In /src/ lies the code - you can read that
     kotlin.srcDir("src")
+    // In /res/ lies service declaration overloads, so ServiceLoader could find them
+    resources.srcDir("res")
 }
 
+// this thing bundles every dependency inside a single jar file, so called 'shadowJar'
 tasks.shadowJar {
     archiveClassifier.set("")
     archiveBaseName.set(project.name)
@@ -23,6 +33,8 @@ tasks.shadowJar {
     }
 }
 
+// I don't know if it's necessary
+// TODO: figure out what this does
 tasks.jar {
     dependsOn(tasks.shadowJar)
 }
@@ -36,10 +48,11 @@ val copyJar = tasks.register<Copy>("copyJar") {
     into(dir)
 }
 
+// Custom task for quickly testing if desktop project even runs
 tasks.register<Exec>("buildAndRun") {
-    dependsOn("copyJar")
+    dependsOn(copyJar)
     val dir = properties["polyloader-directory"] as String + "/jre"
-    val cmd = "${dir}/bin/java.exe -jar ../${project.name}.jar"
+    val cmd = "${dir}/bin/java -jar ../${project.name}.jar"
     workingDir = file("${dir}/bin")
     commandLine(cmd.split(" "))
 }
