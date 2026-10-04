@@ -22,7 +22,9 @@ val json = Json { ignoreUnknownKeys = true }
 object Polyloader {
     const val DEFAULT_CONFIG_NAME = "Polyloader"
     const val DEFAULT_LOG_NAME = "last_log"
-    const val LOGGER_FORMAT = $$"[%1$tH:%1$tM:%1$tS] %4$s: %5$s%6$s%n" // [hh:mm:ss] LOG_LEVEL: msg STACKTRACE
+    //const val LOGGER_FORMAT = $$"[%1$tH:%1$tM:%1$tS] %4$s: %5$s%6$s%n" // [hh:mm:ss] 'LOG_LEVEL': 'msg' 'stacktrace'
+    const val LOGGER_FORMAT = $$"[%4$.1s]: %5$s%6$s%n" // [first letter of 'LOG_LEVEL']: 'msg' 'stacktrace'
+
     val LOCALE: Locale = Locale.ENGLISH
     val LOGGER: Logger = Logger.getLogger(this::class.java.name)
     // We are typically in '../Polyloader/jre/bin/' path
