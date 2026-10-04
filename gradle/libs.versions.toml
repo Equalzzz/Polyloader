@@ -10,6 +10,7 @@ mindustry = "v160"
 shadow = "9.3.0"
 serialization-plugin = "2.4.20"
 serialization-library = "1.11.0"
+mixin = "0.8.3"
 
 [plugins]
 kotlin-jvm = {id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
@@ -18,3 +19,4 @@ serialization = {id = "org.jetbrains.kotlin.plugin.serialization", version.ref =
 
 [libraries]
 serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization-library" }
+mixin = {module = "org.spongepowered:mixin", version.ref = "mixin" }
