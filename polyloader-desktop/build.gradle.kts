@@ -41,7 +41,7 @@ tasks.register<Copy>("copyJar") {
 tasks.register<Exec>("buildAndRun") {
     dependsOn("copyJar")
     val dir = properties["polyloader-directory"] as String + "/jre"
-    val cmd = "java -jar ../${project.name}.jar"
-    workingDir = File("$dir/bin")
+    val cmd = "${dir}/bin/java.exe -jar ../${project.name}.jar"
+    workingDir = file("${dir}/bin")
     commandLine(cmd.split(" "))
 }
