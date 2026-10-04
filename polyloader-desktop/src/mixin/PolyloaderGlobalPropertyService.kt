@@ -1,10 +1,7 @@
 package org.im.polyloader.mixin
 
-import org.im.polyloader.Polyloader.log
-import org.im.polyloader.utils.debug
 import org.spongepowered.asm.service.IGlobalPropertyService
 import org.spongepowered.asm.service.IPropertyKey
-import kotlin.reflect.typeOf
 
 class PolyloaderGlobalPropertyService : IGlobalPropertyService {
     private val values : MutableMap<IPropertyKey, Any?> = HashMap()

@@ -4,10 +4,7 @@ import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 import org.im.polyloader.utils.ArcOS
 import org.im.polyloader.utils.debug
-import org.im.polyloader.utils.error
 import org.spongepowered.asm.launch.MixinBootstrap
-import org.spongepowered.asm.service.IMixinService
-import org.spongepowered.asm.service.MixinService
 import java.io.File
 import java.io.IOException
 import java.nio.file.Paths

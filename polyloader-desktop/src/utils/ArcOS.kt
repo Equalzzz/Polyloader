@@ -9,7 +9,7 @@ object ArcOS {
     private val fs = File.separator
     val osName = prop("os.name")
     val osArch = prop("os.arch")
-    val userHome = prop("user.home")!!
+    val userHome = prop("user.home")
     val isWindows = osName.lowercase().contains("win")
     val isMac = osName.lowercase().contains("mac")
     val isLinux = osName.lowercase().contains("linux") || osName.lowercase().contains("bsd")
