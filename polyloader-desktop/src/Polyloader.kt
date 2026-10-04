@@ -2,6 +2,12 @@ package org.im.polyloader
 
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
+import org.im.polyloader.utils.ArcOS
+import org.im.polyloader.utils.debug
+import org.im.polyloader.utils.error
+import org.spongepowered.asm.launch.MixinBootstrap
+import org.spongepowered.asm.service.IMixinService
+import org.spongepowered.asm.service.MixinService
 import java.io.File
 import java.io.IOException
 import java.nio.file.Paths
@@ -23,16 +29,13 @@ object Polyloader {
     const val DEFAULT_CONFIG_NAME = "Polyloader"
     const val DEFAULT_LOG_NAME = "last_log"
     //const val LOGGER_FORMAT = $$"[%1$tH:%1$tM:%1$tS] %4$s: %5$s%6$s%n" // [hh:mm:ss] 'LOG_LEVEL': 'msg' 'stacktrace'
-    const val LOGGER_FORMAT = $$"[%4$.1s] [Polyloader] %5$s%6$s%n" // [first letter of 'LOG_LEVEL'] [Polyloader] 'msg' 'stacktrace'
+    const val DEFAULT_LOGGER_FORMAT = $$"[%4$.1s] [Polyloader] %5$s%6$s%n" // [first letter of 'LOG_LEVEL'] [Polyloader] 'msg' 'stacktrace'
 
-    val LOCALE: Locale = Locale.ENGLISH
-    val LOGGER: Logger = Logger.getLogger(this::class.java.name)
+    val log: Logger = Logger.getLogger(this::class.java.name)
     // We are typically in '../Polyloader/jre/bin/' path
     // Lets get just '../Polyloader/' directory
     val polyloaderDirectory : File = Paths.get("").toAbsolutePath().parent.parent.toFile()
-    val IS_WINDOWS : Boolean = System.getProperty("os.name").lowercase(LOCALE).contains("win")
-    val IS_MAC : Boolean = System.getProperty("os.name").lowercase(LOCALE).contains("mac")
-
+    val mindustryDataDirectory : File = File(ArcOS.getAppDataDirectoryString("Mindustry"))
     init {
         // Applies format and locale changes here + creates log.txt in launcher path
         initLogger()
@@ -45,9 +48,7 @@ object Polyloader {
 
     @JvmStatic
     fun main(args: Array<String>) {
-
-        LOGGER.info("Initializing Polyloader")
-
+        log.info("Initializing Polyloader")
         // Finds a valid config with all the info about where mindustry is
         polyloaderConfig = getLoaderConfig(polyloaderDirectory)
 
@@ -69,21 +70,23 @@ object Polyloader {
         // Add icon and a name to the java process
         // Make a way to tell apart modified and unmodified versions (apart from adding THE CORE)
 
+        MixinBootstrap.init()
+        // TODO:
+        // Fix 'No mixin global property service is available'
+
         // That doesn't really do what I wanted
         val cmd = ArrayList<String>(8)
-        cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java" + (if (IS_WINDOWS) ".exe" else ""))
-        if (IS_MAC)
+        cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java" + (if (ArcOS.isWindows) ".exe" else ""))
+        if (ArcOS.isMac)
             cmd.add("-XstartOnFirstThread") // still don't know what it does
         gameConfig.data.vmArgs.forEach { cmd.add(it.trim()) }
         cmd.add("-jar")
         cmd.add(File(gameConfig.file.absolutePath).parentFile.resolve(gameConfig.data.classPath.first()).absolutePath)
-        LOGGER.info("Assembled a command:\n${cmd.joinToString(" ")}")
+        log.debug("Assembled a command:\n${cmd.joinToString(" ")}")
         ProcessBuilder(cmd)
             .redirectOutput(ProcessBuilder.Redirect.INHERIT)
             .redirectError(ProcessBuilder.Redirect.INHERIT)
             .start()
-
-
     }
 
     // Finds or creates semi-valid launcher config
@@ -91,11 +94,11 @@ object Polyloader {
         val polyloaderConfig = findClosestJson<PolyloaderConfigData>(path)
         // if it fails to find one, then it creates it out of thin air
         if (polyloaderConfig == null) {
-            LOGGER.log(Level.WARNING, "Could not find valid config file. Creating a new one...")
+            log.log(Level.WARNING, "Could not find valid config file. Creating a new one...")
             return createBlankLoaderConfig(path)
         }
         // if everything is okay, then return the file
-        LOGGER.info("Found ${polyloaderConfig.file.name} launcher config file")
+        log.info("Found ${polyloaderConfig.file.name} launcher config file")
         return polyloaderConfig
     }
 
@@ -105,7 +108,7 @@ object Polyloader {
         val dataString = Json.encodeToString(PolyloaderConfigData.serializer(), blankData)
         val file = File(path.toPath().toAbsolutePath().toString() + File.separator + fileName)
         file.writeText(dataString)
-        LOGGER.info("Created new $fileName launcher config file")
+        log.info("Created new $fileName launcher config file")
         return JsonConfig(file, blankData)
     }
 
@@ -132,7 +135,7 @@ object Polyloader {
             // FALLBACK:
             // in case path is incorrect
             // 1. Try to find it inside polyloader folder
-            LOGGER.warning("Specified path '${gameConfigPath.absolutePath}' for Mindustry config file is incorrect\n Searching in adjacent directories...")
+            log.warning("Specified path '${gameConfigPath.absolutePath}' for Mindustry config file is incorrect\n Searching in adjacent directories...")
             gameConfig = findClosestJson<GameConfigData>(polyloaderDirectory)
             if (gameConfig == null) {
                 // 2. Try to find it inside parent
@@ -142,7 +145,7 @@ object Polyloader {
                     polyloaderDirectory.parentFile.listFiles()?.filter { it.isDirectory && it.name.lowercase().contains("mindustry") } ?. forEach {
                         gameConfig = findClosestJson<GameConfigData>(it)
                         if (gameConfig != null) {
-                            LOGGER.info("Found ${gameConfig.file.name} Mindustry config file")
+                            log.info("Found ${gameConfig.file.name} Mindustry config file")
                             return gameConfig
                         }
                     }
@@ -150,7 +153,7 @@ object Polyloader {
                     polyloaderDirectory.parentFile.listFiles()?.filter { it -> it.isDirectory && it?.listFiles()!!.any { it.name.lowercase().contains("mindustry") }} ?. forEach {
                         gameConfig = findClosestJson<GameConfigData>(it)
                         if (gameConfig != null) {
-                            LOGGER.info("Found ${gameConfig.file.name} Mindustry config file")
+                            log.info("Found ${gameConfig.file.name} Mindustry config file")
                             return gameConfig
                         }
                     }
@@ -172,14 +175,14 @@ object Polyloader {
                         ${polyloaderDirectory.parentFile.absolutePath}
                         ${polyloaderDirectory.parentFile.listFiles()?.filter { it.isDirectory }?.joinToString {"\n"} ?: ""}
                         """
-                    LOGGER.log(Level.SEVERE, msg)
+                    log.log(Level.SEVERE, msg)
                     error(msg)
                     // TODO:
                     // Display a dialog box, informing on how to fix the issue
                 }
             }
         }
-        LOGGER.info("Found ${gameConfig.file.name} Mindustry config file")
+        log.info("Found ${gameConfig.file.name} Mindustry config file")
         return gameConfig
     }
 
@@ -196,20 +199,20 @@ object Polyloader {
     }
 
     private fun initLogger() {
-        Locale.setDefault(LOCALE)
-        System.setProperty("java.util.logging.SimpleFormatter.format", LOGGER_FORMAT)
-        LOGGER.useParentHandlers = false
+        Locale.setDefault(Locale.getDefault())
+        System.setProperty("java.util.logging.SimpleFormatter.format", DEFAULT_LOGGER_FORMAT)
+        log.useParentHandlers = false
         val formatter = SimpleFormatter()
         val outHandler = StreamHandler(System.out, formatter)
-        LOGGER.addHandler(outHandler)
+        log.addHandler(outHandler)
         try {
             val lastLog = File(polyloaderDirectory, "$DEFAULT_LOG_NAME.txt")
             val fileHandler = FileHandler(lastLog.absolutePath, false)
             fileHandler.formatter = formatter
-            LOGGER.addHandler(fileHandler)
+            log.addHandler(fileHandler)
         }
         catch (e: IOException) {
-            LOGGER.log(Level.SEVERE, "Could not create log file. All logging is performed in IDE", e)
+            log.log(Level.SEVERE, "Could not create log file. All logging is performed in IDE", e)
         }
     }
 }
