@@ -17,6 +17,7 @@ fun Logger.debug(msg: String) {
     log(ExtendedLevel.DEBUG, "$msg\n\tat ${Thread.currentThread().stackTrace[2].let { "${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})" }}")
 }
 
+// Adds error(...) function to display errors (I know severe exists, it's not the same vibe)
 fun Logger.error(msg: String, e: Exception? = null) {
     if (e != null)
         return log(ExtendedLevel.ERROR, msg, e)
