@@ -1,28 +1,36 @@
 package org.im.polyloader
 
-import kotlinx.serialization.*
-import kotlinx.serialization.json.*
-import org.im.polyloader.utils.ArcOS
-import org.im.polyloader.utils.debug
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import org.im.polyloader.mixin.PolyloaderClassLoader
+import org.im.polyloader.mixin.PolyloaderMixinService
+import org.im.polyloader.mixin.PolyloaderMixinTransformer
+import org.im.polyloader.utils.*
 import org.spongepowered.asm.launch.MixinBootstrap
+import org.spongepowered.asm.mixin.MixinEnvironment
+import org.spongepowered.asm.mixin.Mixins
+import org.spongepowered.asm.service.MixinService
 import java.io.File
 import java.io.IOException
 import java.nio.file.Paths
 import java.util.*
-import java.util.Locale
 import java.util.logging.*
+import java.util.zip.ZipInputStream
 
 
 @Serializable
 data class PolyloaderConfigData(val mindustryConfigFile: String = "__BLANK__")
 @Serializable
 data class GameConfigData(val classPath : List<String>, val mainClass : String, val vmArgs : List<String>)
+@Serializable
+data class ModConfigData(val displayName: String, val name: String, val author: String, val main: String, val description: String, val version: String)
 
 data class JsonConfig<DataType>(val file: File, val data: DataType)
 
-val json = Json { ignoreUnknownKeys = true }
-
 object Polyloader {
+    const val JSON_MOD_CONFIG_NAME = "mod.json"
+    const val HJSON_MOD_CONFIG_NAME = "mod.hjson"
+    val MOD_CONFIG_NAMES = listOf(JSON_MOD_CONFIG_NAME, HJSON_MOD_CONFIG_NAME)
     const val DEFAULT_CONFIG_NAME = "Polyloader"
     const val DEFAULT_LOG_NAME = "last_log"
     //const val LOGGER_FORMAT = $$"[%1$tH:%1$tM:%1$tS] %4$s: %5$s%6$s%n" // [hh:mm:ss] 'LOG_LEVEL': 'msg' 'stacktrace'
@@ -33,6 +41,7 @@ object Polyloader {
     // Lets get just '../Polyloader/' directory
     val polyloaderDirectory : File = Paths.get("").toAbsolutePath().parent.parent.toFile()
     val mindustryDataDirectory : File = File(ArcOS.getAppDataDirectoryString("Mindustry"))
+
     init {
         // Applies format and locale changes here + creates log.txt in launcher path
         initLogger()
@@ -42,6 +51,11 @@ object Polyloader {
         private set
     lateinit var gameConfig: JsonConfig<GameConfigData>
         private set
+    lateinit var mindustryExecutable: File
+        private set
+    lateinit var classLoader : PolyloaderClassLoader
+        private set
+    val settings = ArcSettings()
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -52,9 +66,11 @@ object Polyloader {
         // Finds a valid config with all data on how to launch mindustry
         gameConfig = getGameConfig(polyloaderConfig)
 
-        // tries to cache paths and actualize data in polyloader config
+        // Tries to cache paths and actualize data in polyloader config
         simplifyLoaderConfigData(polyloaderConfig, gameConfig)
 
+        // Gets mindustry desktop.jar file
+        mindustryExecutable = File(gameConfig.file.absolutePath).parentFile.resolve(gameConfig.data.classPath.first())
         // TODO:
         // 0. Find mindustry setting and apply them before opening (like ui scale, it requires restart for some reason)
         // 1. Find mods folder
@@ -67,18 +83,91 @@ object Polyloader {
         // Add icon and a name to the java process
         // Make a way to tell apart modified and unmodified versions (apart from adding THE CORE)
 
-        MixinBootstrap.init()
-        // TODO:
-        // Fix 'No mixin global property service is available'
+        loadSettings()
 
-        // That doesn't really do what I wanted
+        classLoader = PolyloaderClassLoader(arrayOf(mindustryExecutable.toURI().toURL()), Polyloader::class.java.classLoader)
+
+        MixinBootstrap.init()
+        MixinEnvironment.getDefaultEnvironment().setSide(MixinEnvironment.Side.CLIENT).activeTransformer
+        classLoader.addTransformer(PolyloaderMixinTransformer())
+
+        Mixins.addConfiguration("polyloader-test.mixins.json")
+
+        (MixinService.getService() as PolyloaderMixinService).onGameStart()
+
+        val mindustryMainClass = classLoader.loadClass("mindustry.desktop.DesktopLauncher")
+        val mindustryMainMethod = mindustryMainClass.getDeclaredMethod("main", Array<String>::class.java)
+        mindustryMainMethod.invoke(null, emptyArray<String>())
+
+
+        //mindustryDataDirectory.resolve("mods").listFiles()?.forEach {
+        //    loadModModifiers(it)
+        //}
+
+        classLoader.close()
+    }
+
+    fun loadSettings() {
+        try {
+            settings.load()
+            log.info("Successfully loaded Mindustry settings.bin")
+        }
+        catch (e: IOException) {
+            log.error("Unable to load Mindustry settings. Check if game is able to run normally.")
+            error(e)
+        }
+    }
+
+    data class UnzippedFile(val name: String, val content: String)
+
+    fun loadModModifiers(file: File) {
+        // for jars and zips
+        if (file.isFile) {
+            // Unzips into a list of files
+            val files = ZipInputStream(file.inputStream()).use { zis ->
+                generateSequence { zis.nextEntry }
+                    .filterNot { it.isDirectory }
+                    .map { UnzippedFile(it.name, zis.readAllBytes().toString(Charsets.UTF_8)) }
+                    .toList()
+            }
+            // Finds mod.[h]json in mod root
+            val modConfig = files.first { MOD_CONFIG_NAMES.any { sampleName -> it.name.endsWith(sampleName) } }
+
+            var mixinConfigFile : File? = null
+            val modFileToName : MutableMap<UnzippedFile, String> = HashMap()
+
+            // Parse hjson OR json and get:
+            // 1. Mod name
+            // 2. Mixin configuration
+            if (modConfig.name.endsWith(HJSON_MOD_CONFIG_NAME)) {
+                try {
+                    val modConfigData = SimpleHJsonParser(modConfig.content)
+                    val modName = modConfigData.get("name") as String
+                    modFileToName[modConfig] = modName
+                    mixinConfigFile = File(modConfigData.get("mixin") as String)
+                    log.info("Found mixin config file from mod $modName")
+                }
+                catch (e : Exception) {
+                    log.error("Couldn't parse file or find mixin config", e)
+                }
+                //log.debug(JsonValue.readHjson(modConfig.content).toString())
+            }
+            // Try parse json
+            else if (modConfig.name.endsWith(JSON_MOD_CONFIG_NAME)) {
+                //json.parseToJsonElement(modConfig.content).jsonObject.
+            }
+        }
+    }
+
+    // That doesn't really do what I wanted yet
+    private fun openGame() {
         val cmd = ArrayList<String>(8)
         cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java" + (if (ArcOS.isWindows) ".exe" else ""))
         if (ArcOS.isMac)
             cmd.add("-XstartOnFirstThread") // still don't know what it does
         gameConfig.data.vmArgs.forEach { cmd.add(it.trim()) }
         cmd.add("-jar")
-        cmd.add(File(gameConfig.file.absolutePath).parentFile.resolve(gameConfig.data.classPath.first()).absolutePath)
+        cmd.add(mindustryExecutable.absolutePath)
         log.debug("Assembled a command:\n${cmd.joinToString(" ")}")
         ProcessBuilder(cmd)
             .redirectOutput(ProcessBuilder.Redirect.INHERIT)
@@ -212,27 +301,4 @@ object Polyloader {
             log.log(Level.SEVERE, "Could not create log file. All logging is performed in IDE", e)
         }
     }
-}
-
-/**
-* Finds first .json file that looks like a **serialized** data class of type <[DataType]> inside a given path
- */
-inline fun <reified DataType> findClosestJson(file: File): JsonConfig<DataType>? {
-    // find all .json files in 'where' path
-    val files = file.listFiles()?.filter{ it.extension == "json" } ?: return null
-    // check each until anything looks like a correct config
-    for (file in files) {
-        val data = tryParseJson<DataType>(file) ?: continue
-        return JsonConfig(file.normalize(), data as DataType)
-    }
-    return null
-}
-
-// Marked experimental to shut the compiler (decodeFromStream was used)
-@OptIn(ExperimentalSerializationApi::class)
-inline fun <reified DataType> tryParseJson(file: File) : DataType? {
-    try {
-        return json.decodeFromStream<DataType>(file.inputStream())
-    } catch (_: Exception) { }
-    return null
 }

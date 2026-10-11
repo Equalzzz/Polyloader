@@ -13,7 +13,7 @@ class ExtendedLevel : Level {
 }
 
 // Adds debug(...) function to display debug messages
-fun Logger.debug(msg: String) {
+fun Logger.debug(msg: String?) {
     log(ExtendedLevel.DEBUG, "$msg\n\tat ${Thread.currentThread().stackTrace[2].let { "${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})" }}")
 }
 

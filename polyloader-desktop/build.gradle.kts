@@ -6,18 +6,23 @@ plugins {
 }
 
 dependencies {
-    implementation(libs.serialization) // json manipulation
+    implementation(libs.json)
+    //implementation(libs.bundles.serialization) // [h]json manipulation
 
     // Mixin dependencies
     api(libs.mixin) // actually don't know if it should be api or implementation... todo find out
     implementation(libs.log4j.api)
     runtimeOnly(libs.log4j.core)
     implementation(libs.guava.jre)
+    implementation(libs.gson)
+
+    implementation(libs.bundles.asm)
 }
 
 // this make folder trees shorter
 sourceSets.main {
     // In /src/ lies the code - you can read that
+    java.srcDir("src")
     kotlin.srcDir("src")
     // In /res/ lies service declaration overloads, so ServiceLoader could find them
     resources.srcDir("res")

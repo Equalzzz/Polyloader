@@ -1,14 +1,8 @@
 package org.im.polyloader.utils
 
-import java.io.File
-
-// Ruthlessly ripped from Arc core
+// Ruthlessly ripped from Arc core (NO ANDROID SUPPORT)
 object ArcOS {
-    // TODO:
-    // Android support
-    private val fs = File.separator
     val osName = prop("os.name")
-    val osArch = prop("os.arch")
     val userHome = prop("user.home")
     val isWindows = osName.lowercase().contains("win")
     val isMac = osName.lowercase().contains("mac")
