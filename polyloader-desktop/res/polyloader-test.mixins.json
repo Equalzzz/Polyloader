@@ -4,7 +4,7 @@
   "package": "mixins",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "MenuMixin"
+    "ModsMixin"
   ],
   "injectors": {
     "defaultRequire": 1

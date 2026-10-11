@@ -18,6 +18,8 @@ dependencies {
 
 sourceSets.main {
     kotlin.srcDirs("src")
+    java.srcDirs("src")
+    resources.srcDirs("assets")
 }
 
 tasks.withType<KotlinCompile>().configureEach {
@@ -71,7 +73,7 @@ tasks.jar {
 
     from(configurations.runtimeClasspath.map{ config -> config.map{ if (it.isDirectory) it else zipTree(it) } })
 
-    from(rootDir) {
+    from(projectDir) {
         include("mod.hjson")
     }
 

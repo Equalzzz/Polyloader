@@ -44,8 +44,8 @@ class PolyloaderMixinService : MixinServiceAbstract() {
     override fun getPrimaryContainer(): IContainerHandle = containerHandle
 
     override fun getResourceAsStream(name: String?): InputStream? {
-        Polyloader.log.debug("Pending resource for $name")
-        return Polyloader::class.java.classLoader.getResourceAsStream(name) ?: return null
+        Polyloader.log.debug("Pending resource for $name", true)
+        return Polyloader.classLoader.getResourceAsStream(name) ?: return null
     }
 
     // Here we steal phase consumer from evil mixin ecosystem to change a phase a bit later

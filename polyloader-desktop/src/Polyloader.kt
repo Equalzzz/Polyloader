@@ -2,6 +2,7 @@ package org.im.polyloader
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.im.polyloader.mixin.PolyloaderClassLoader
 import org.im.polyloader.mixin.PolyloaderMixinService
 import org.im.polyloader.mixin.PolyloaderMixinTransformer
@@ -87,22 +88,29 @@ object Polyloader {
 
         classLoader = PolyloaderClassLoader(arrayOf(mindustryExecutable.toURI().toURL()), Polyloader::class.java.classLoader)
 
+
         MixinBootstrap.init()
         MixinEnvironment.getDefaultEnvironment().setSide(MixinEnvironment.Side.CLIENT).activeTransformer
         classLoader.addTransformer(PolyloaderMixinTransformer())
 
         Mixins.addConfiguration("polyloader-test.mixins.json")
 
+        loadModModifiers(File(polyloaderDirectory, "jre/polyloader-coreDesktop.jar"))
+
+        mindustryDataDirectory.resolve("mods").listFiles()?.forEach {
+            loadModModifiers(it)
+        }
+
         (MixinService.getService() as PolyloaderMixinService).onGameStart()
 
         val mindustryMainClass = classLoader.loadClass("mindustry.desktop.DesktopLauncher")
         val mindustryMainMethod = mindustryMainClass.getDeclaredMethod("main", Array<String>::class.java)
+
+        System.out.flush()
         mindustryMainMethod.invoke(null, emptyArray<String>())
 
 
-        //mindustryDataDirectory.resolve("mods").listFiles()?.forEach {
-        //    loadModModifiers(it)
-        //}
+
 
         classLoader.close()
     }
@@ -121,8 +129,11 @@ object Polyloader {
     data class UnzippedFile(val name: String, val content: String)
 
     fun loadModModifiers(file: File) {
+        // TODO: Add fallbacks (like trying to find any "*mixins.json" file)
+
         // for jars and zips
         if (file.isFile) {
+            classLoader.addURL(file.toURI().toURL())
             // Unzips into a list of files
             val files = ZipInputStream(file.inputStream()).use { zis ->
                 generateSequence { zis.nextEntry }
@@ -139,22 +150,30 @@ object Polyloader {
             // Parse hjson OR json and get:
             // 1. Mod name
             // 2. Mixin configuration
-            if (modConfig.name.endsWith(HJSON_MOD_CONFIG_NAME)) {
-                try {
+            try {
+                // Try parse hjson
+                if (modConfig.name.endsWith(HJSON_MOD_CONFIG_NAME)) {
                     val modConfigData = SimpleHJsonParser(modConfig.content)
                     val modName = modConfigData.get("name") as String
                     modFileToName[modConfig] = modName
-                    mixinConfigFile = File(modConfigData.get("mixin") as String)
+                    mixinConfigFile = File(modConfigData.get("mixin")!! as String)
+                    log.info("Found mixin config file from mod $modName")
+                    //log.debug(JsonValue.readHjson(modConfig.content).toString())
+                }
+                // Try parse json
+                else if (modConfig.name.endsWith(JSON_MOD_CONFIG_NAME)) {
+                    val modConfigData = json.parseToJsonElement(modConfig.content).jsonObject
+                    val modName = modConfigData["name"].toString()
+                    modFileToName[modConfig] = modName
+                    mixinConfigFile = File(modConfigData["mixin"]!!.toString())
                     log.info("Found mixin config file from mod $modName")
                 }
-                catch (e : Exception) {
-                    log.error("Couldn't parse file or find mixin config", e)
-                }
-                //log.debug(JsonValue.readHjson(modConfig.content).toString())
+            } catch (_ : Exception) {
+                log.error("Mod file '${file.nameWithoutExtension}': Couldn't parse file or find mixin config")
             }
-            // Try parse json
-            else if (modConfig.name.endsWith(JSON_MOD_CONFIG_NAME)) {
-                //json.parseToJsonElement(modConfig.content).jsonObject.
+            if (mixinConfigFile != null && mixinConfigFile.exists()) {
+                log.debug("Found mixin config file ${mixinConfigFile.absolutePath}")
+                Mixins.addConfiguration(mixinConfigFile.name)
             }
         }
     }

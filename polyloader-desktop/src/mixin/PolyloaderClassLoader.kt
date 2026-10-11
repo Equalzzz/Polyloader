@@ -20,8 +20,8 @@ class PolyloaderClassLoader : URLClassLoader {
         return defineClass(name, rawBytes, 0, rawBytes.size)
     }
 
-    // for some reason I can't access it without overriding
-    override fun addURL(url: URL) = super.addURL(url)
+    // Adding urls should be public method
+    public override fun addURL(url: URL) = super.addURL(url)
 
     fun addTransformer(classTransformer: IPolyloaderClassTransformer) {
         classTransformers.add(classTransformer)
