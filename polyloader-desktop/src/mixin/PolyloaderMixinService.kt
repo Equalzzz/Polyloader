@@ -24,9 +24,7 @@ class PolyloaderMixinService : MixinServiceAbstract() {
         TODO("Not yet implemented")
     }
 
-    override fun getBytecodeProvider(): IClassBytecodeProvider {
-        return bytecodeProvider
-    }
+    override fun getBytecodeProvider(): IClassBytecodeProvider = bytecodeProvider
 
     override fun getTransformerProvider(): ITransformerProvider? {
         Polyloader.log.debug("getTransformerProvider()")
