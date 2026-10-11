@@ -19,20 +19,18 @@ class PolyloaderMixinService : MixinServiceAbstract() {
     override fun isValid() = true
 
     // for some reason it ISN'T used, but should have been used
-    override fun getClassProvider(): IClassProvider {
-        Polyloader.log.debug("getClassProvider()")
-        TODO("Not yet implemented")
-    }
+    override fun getClassProvider(): IClassProvider =
+        TODO("getClassProvider() is not yet implemented")
 
     override fun getBytecodeProvider(): IClassBytecodeProvider = bytecodeProvider
 
     override fun getTransformerProvider(): ITransformerProvider? {
-        Polyloader.log.debug("getTransformerProvider()")
+        Polyloader.log.debug("getTransformerProvider() was called")
         return null
     }
 
     override fun getClassTracker(): IClassTracker? {
-        Polyloader.log.debug("getClassTracker()")
+        Polyloader.log.debug("getClassTracker() was called")
         return null
     }
 
@@ -50,14 +48,15 @@ class PolyloaderMixinService : MixinServiceAbstract() {
         return Polyloader::class.java.classLoader.getResourceAsStream(name) ?: return null
     }
 
-    lateinit var phaseConsumer : IConsumer<MixinEnvironment.Phase?>
-
+    // Here we steal phase consumer from evil mixin ecosystem to change a phase a bit later
+    private lateinit var phaseConsumer : IConsumer<MixinEnvironment.Phase?>
     @Deprecated("Deprecated in Java")
     override fun wire(phase: MixinEnvironment.Phase?, phaseConsumer: IConsumer<MixinEnvironment.Phase?>?) {
         this.phaseConsumer = phaseConsumer!!
         super.wire(phase, phaseConsumer)
     }
 
+    // Here we USE that phase consumer to actually change the phase to DEFAULT
     fun onGameStart() {
         phaseConsumer.accept(MixinEnvironment.Phase.DEFAULT)
     }
