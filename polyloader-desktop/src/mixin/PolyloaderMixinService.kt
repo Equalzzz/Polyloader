@@ -38,10 +38,7 @@ class PolyloaderMixinService : MixinServiceAbstract() {
         return null
     }
 
-    override fun getAuditTrail(): IMixinAuditTrail? {
-        Polyloader.log.debug("getAuditTrail()")
-        return null
-    }
+    override fun getAuditTrail(): IMixinAuditTrail? = null
 
     // for some reason it is used
     // todo: understand what it does
