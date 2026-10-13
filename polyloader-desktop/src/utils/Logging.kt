@@ -28,3 +28,26 @@ fun Logger.error(msg: String, e: Exception? = null) {
 fun Logger.error(e: Exception) {
     log(ExtendedLevel.ERROR, e.stackTraceToString())
 }
+
+fun debug(msg: Any?, silent: Boolean = false) {
+    println("\u001b[32m[D] [Polyloader] $msg\u001b[0m")
+    if (!silent)
+        println("\u001b[37m\tat ${getSource()}\u001b[0m")
+}
+fun info(msg: Any?) {
+    println("[I] [Polyloader] $msg")
+}
+fun warn(msg: Any?, silent: Boolean = true) {
+    println("\u001b[33m[W] [Polyloader] $msg\u001b[0m")
+    if (!silent)
+        println("\u001b[33m\tat ${getSource()}\u001b[0m")
+}
+fun logError(msg: Any?, e: Exception? = null) {
+    println("\u001b[31m[E] [Polyloader] $msg\u001b[0m")
+    e?.printStackTrace()
+}
+fun logError(e: Exception) {
+    e.printStackTrace()
+}
+private fun getSource() : String =
+    Thread.currentThread().stackTrace[4].let { "${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})" }
