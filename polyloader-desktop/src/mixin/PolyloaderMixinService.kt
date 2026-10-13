@@ -13,7 +13,7 @@ import java.util.*
 class PolyloaderMixinService : MixinServiceAbstract() {
     private val containerHandle = ContainerHandleVirtual(name)
     private val bytecodeProvider = PolyloaderClassBytecodeProvider()
-
+    private val modConfigs : MutableMap<String, MutableList<String>> = HashMap()
     override fun getName() = "Polyloader-Mixin"
 
     override fun isValid() = true
@@ -25,12 +25,12 @@ class PolyloaderMixinService : MixinServiceAbstract() {
     override fun getBytecodeProvider(): IClassBytecodeProvider = bytecodeProvider
 
     override fun getTransformerProvider(): ITransformerProvider? {
-        Polyloader.log.debug("getTransformerProvider() was called")
+        debug("getTransformerProvider() was called")
         return null
     }
 
     override fun getClassTracker(): IClassTracker? {
-        Polyloader.log.debug("getClassTracker() was called")
+        debug("getClassTracker() was called")
         return null
     }
 
@@ -43,9 +43,16 @@ class PolyloaderMixinService : MixinServiceAbstract() {
     // todo: understand what it does
     override fun getPrimaryContainer(): IContainerHandle = containerHandle
 
-    override fun getResourceAsStream(name: String?): InputStream? {
-        Polyloader.log.debug("Pending resource for $name", true)
-        return Polyloader.classLoader.getResourceAsStream(name) ?: return null
+    // All mod mixin configs are passed in a single loader, but they just try their best at finding
+    // resource in any URL available, so any config with the same relative path could be loaded - which might be a problem
+    // as in rare cases one mod could read other mod's config or load other mod's mixins, which shouldn't be allowed
+    // will fix it when it becomes a problem todo: ^^^
+    override fun getResourceAsStream(name: String): InputStream? {
+        debug("Pending resource for $name", true)
+        val stream = Polyloader.classLoader.getResourceAsStream(name)
+        if (stream != null) return stream
+        // then it's probably a mod mixin config that looks like 'modName:path/giga-config.mixins.json'
+        return Polyloader.classLoader.getResourceAsStream(name.substringAfterLast(':')) ?: return null
     }
 
     // Here we steal phase consumer from evil mixin ecosystem to change a phase a bit later

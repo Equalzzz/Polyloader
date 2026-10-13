@@ -7,6 +7,12 @@ import org.im.polyloader.mixin.PolyloaderClassLoader
 import org.im.polyloader.mixin.PolyloaderMixinService
 import org.im.polyloader.mixin.PolyloaderMixinTransformer
 import org.im.polyloader.utils.*
+import org.im.polyloader.utils.arc.compat.ArcOS
+import org.im.polyloader.utils.arc.compat.ArcSettings
+import org.im.polyloader.utils.files.SimpleHJsonParser
+import org.im.polyloader.utils.files.findClosestJson
+import org.im.polyloader.utils.files.json
+import org.im.polyloader.utils.files.tryParseJson
 import org.spongepowered.asm.launch.MixinBootstrap
 import org.spongepowered.asm.mixin.MixinEnvironment
 import org.spongepowered.asm.mixin.Mixins
@@ -16,6 +22,7 @@ import java.io.IOException
 import java.nio.file.Paths
 import java.util.*
 import java.util.logging.*
+import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 
 
@@ -45,7 +52,7 @@ object Polyloader {
 
     init {
         // Applies format and locale changes here + creates log.txt in launcher path
-        initLogger()
+        //initLogger()
     }
 
     lateinit var polyloaderConfig: JsonConfig<PolyloaderConfigData>
@@ -60,7 +67,7 @@ object Polyloader {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        log.info("Initializing Polyloader")
+        info("Initializing Polyloader")
         // Finds a valid config with all the info about where mindustry is
         polyloaderConfig = getLoaderConfig(polyloaderDirectory)
 
@@ -73,13 +80,8 @@ object Polyloader {
         // Gets mindustry desktop.jar file
         mindustryExecutable = File(gameConfig.file.absolutePath).parentFile.resolve(gameConfig.data.classPath.first())
         // TODO:
-        // 0. Find mindustry setting and apply them before opening (like ui scale, it requires restart for some reason)
-        // 1. Find mods folder
         // 2. Get all mod mixins configs
-        // 3. Apply mixins
         // 3.5? Apply access wideners
-        // 4. Open the game
-        //
         // minor things:
         // Add icon and a name to the java process
         // Make a way to tell apart modified and unmodified versions (apart from adding THE CORE)
@@ -95,7 +97,10 @@ object Polyloader {
 
         Mixins.addConfiguration("polyloader-test.mixins.json")
 
-        loadModModifiers(File(polyloaderDirectory, "jre/polyloader-coreDesktop.jar"))
+        val f = File(polyloaderDirectory, "jre/polyloader-coreDesktop.jar")
+        debug(f.absolutePath)
+
+        loadModModifiers(f)
 
         mindustryDataDirectory.resolve("mods").listFiles()?.forEach {
             loadModModifiers(it)
@@ -105,6 +110,7 @@ object Polyloader {
 
         val mindustryMainClass = classLoader.loadClass("mindustry.desktop.DesktopLauncher")
         val mindustryMainMethod = mindustryMainClass.getDeclaredMethod("main", Array<String>::class.java)
+
 
         System.out.flush()
         mindustryMainMethod.invoke(null, emptyArray<String>())
@@ -118,33 +124,33 @@ object Polyloader {
     fun loadSettings() {
         try {
             settings.load()
-            log.info("Successfully loaded Mindustry settings.bin")
+            info("Successfully loaded Mindustry settings.bin")
         }
         catch (e: IOException) {
-            log.error("Unable to load Mindustry settings. Check if game is able to run normally.")
+            logError("Unable to load Mindustry settings. Check if game is able to run normally.")
             error(e)
         }
     }
 
     data class UnzippedFile(val name: String, val content: String)
 
-    fun loadModModifiers(file: File) {
+    fun loadModModifiers(modFile: File) {
         // TODO: Add fallbacks (like trying to find any "*mixins.json" file)
 
         // for jars and zips
-        if (file.isFile) {
-            classLoader.addURL(file.toURI().toURL())
+        if (modFile.isFile) {
+            classLoader.addURL(modFile.toURI().toURL())
             // Unzips into a list of files
-            val files = ZipInputStream(file.inputStream()).use { zis ->
+            val modFiles = ZipInputStream(modFile.inputStream()).use { zis ->
                 generateSequence { zis.nextEntry }
                     .filterNot { it.isDirectory }
-                    .map { UnzippedFile(it.name, zis.readAllBytes().toString(Charsets.UTF_8)) }
+                    .map { UnzippedFile(it.name,zis.readAllBytes().toString(Charsets.UTF_8)) }
                     .toList()
             }
             // Finds mod.[h]json in mod root
-            val modConfig = files.first { MOD_CONFIG_NAMES.any { sampleName -> it.name.endsWith(sampleName) } }
+            val modConfig = modFiles.first { MOD_CONFIG_NAMES.any { sampleName -> it.name.endsWith(sampleName) } }
 
-            var mixinConfigFile : File? = null
+            var mixinConfigPath : String? = null
             val modFileToName : MutableMap<UnzippedFile, String> = HashMap()
 
             // Parse hjson OR json and get:
@@ -156,24 +162,25 @@ object Polyloader {
                     val modConfigData = SimpleHJsonParser(modConfig.content)
                     val modName = modConfigData.get("name") as String
                     modFileToName[modConfig] = modName
-                    mixinConfigFile = File(modConfigData.get("mixin")!! as String)
-                    log.info("Found mixin config file from mod $modName")
-                    //log.debug(JsonValue.readHjson(modConfig.content).toString())
+                    mixinConfigPath = "$modName:${(modConfigData.get("mixin") ?: modConfigData.get("mixins"))!! as String}"
+                    info("Found mixin config file from mod $modName: $mixinConfigPath")
                 }
                 // Try parse json
                 else if (modConfig.name.endsWith(JSON_MOD_CONFIG_NAME)) {
                     val modConfigData = json.parseToJsonElement(modConfig.content).jsonObject
                     val modName = modConfigData["name"].toString()
                     modFileToName[modConfig] = modName
-                    mixinConfigFile = File(modConfigData["mixin"]!!.toString())
-                    log.info("Found mixin config file from mod $modName")
+                    mixinConfigPath = "$modName:${(modConfigData["mixin"] ?: modConfigData["mixins"]).toString()}"
+                    info("Found mixin config file from mod $modName : $mixinConfigPath")
                 }
-            } catch (_ : Exception) {
-                log.error("Mod file '${file.nameWithoutExtension}': Couldn't parse file or find mixin config")
+            } catch (e : Exception) {
+                warn("Mod file '${modFile.nameWithoutExtension}': Couldn't parse file or find mixin config: ${e.message}")
             }
-            if (mixinConfigFile != null && mixinConfigFile.exists()) {
-                log.debug("Found mixin config file ${mixinConfigFile.absolutePath}")
-                Mixins.addConfiguration(mixinConfigFile.name)
+
+            // It contains a bug. Wonder if anyone would notice
+            if (mixinConfigPath != null && modFiles.any { innerFile -> mixinConfigPath.endsWith(innerFile.name) }) {
+                debug("Found mixin config file $mixinConfigPath")
+                Mixins.addConfiguration(mixinConfigPath)
             }
         }
     }
@@ -187,7 +194,7 @@ object Polyloader {
         gameConfig.data.vmArgs.forEach { cmd.add(it.trim()) }
         cmd.add("-jar")
         cmd.add(mindustryExecutable.absolutePath)
-        log.debug("Assembled a command:\n${cmd.joinToString(" ")}")
+        debug("Assembled a command:\n${cmd.joinToString(" ")}")
         ProcessBuilder(cmd)
             .redirectOutput(ProcessBuilder.Redirect.INHERIT)
             .redirectError(ProcessBuilder.Redirect.INHERIT)
@@ -199,11 +206,11 @@ object Polyloader {
         val polyloaderConfig = findClosestJson<PolyloaderConfigData>(path)
         // if it fails to find one, then it creates it out of thin air
         if (polyloaderConfig == null) {
-            log.log(Level.WARNING, "Could not find valid config file. Creating a new one...")
+            warn("Could not find valid config file. Creating a new one...")
             return createBlankLoaderConfig(path)
         }
         // if everything is okay, then return the file
-        log.info("Found ${polyloaderConfig.file.name} launcher config file")
+        info("Found ${polyloaderConfig.file.name} launcher config file")
         return polyloaderConfig
     }
 
@@ -213,7 +220,7 @@ object Polyloader {
         val dataString = Json.encodeToString(PolyloaderConfigData.serializer(), blankData)
         val file = File(path.toPath().toAbsolutePath().toString() + File.separator + fileName)
         file.writeText(dataString)
-        log.info("Created new $fileName launcher config file")
+        info("Created new $fileName launcher config file")
         return JsonConfig(file, blankData)
     }
 
@@ -240,7 +247,7 @@ object Polyloader {
             // FALLBACK:
             // in case path is incorrect
             // 1. Try to find it inside polyloader folder
-            log.warning("Specified path '${gameConfigPath.absolutePath}' for Mindustry config file is incorrect\n Searching in adjacent directories...")
+            warn("Specified path '${gameConfigPath.absolutePath}' for Mindustry config file is incorrect\n Searching in adjacent directories...")
             gameConfig = findClosestJson<GameConfigData>(polyloaderDirectory)
             if (gameConfig == null) {
                 // 2. Try to find it inside parent
@@ -250,7 +257,7 @@ object Polyloader {
                     polyloaderDirectory.parentFile.listFiles()?.filter { it.isDirectory && it.name.lowercase().contains("mindustry") } ?. forEach {
                         gameConfig = findClosestJson<GameConfigData>(it)
                         if (gameConfig != null) {
-                            log.info("Found ${gameConfig.file.name} Mindustry config file")
+                            info("Found ${gameConfig.file.name} Mindustry config file")
                             return gameConfig
                         }
                     }
@@ -258,7 +265,7 @@ object Polyloader {
                     polyloaderDirectory.parentFile.listFiles()?.filter { it -> it.isDirectory && it?.listFiles()!!.any { it.name.lowercase().contains("mindustry") }} ?. forEach {
                         gameConfig = findClosestJson<GameConfigData>(it)
                         if (gameConfig != null) {
-                            log.info("Found ${gameConfig.file.name} Mindustry config file")
+                            info("Found ${gameConfig.file.name} Mindustry config file")
                             return gameConfig
                         }
                     }
@@ -280,14 +287,14 @@ object Polyloader {
                         ${polyloaderDirectory.parentFile.absolutePath}
                         ${polyloaderDirectory.parentFile.listFiles()?.filter { it.isDirectory }?.joinToString {"\n"} ?: ""}
                         """
-                    log.log(Level.SEVERE, msg)
+                    warn(msg)
                     error(msg)
                     // TODO:
                     // Display a dialog box, informing on how to fix the issue
                 }
             }
         }
-        log.info("Found ${gameConfig.file.name} Mindustry config file")
+        info("Found ${gameConfig.file.name} Mindustry config file")
         return gameConfig
     }
 

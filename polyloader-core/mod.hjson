@@ -12,4 +12,4 @@ version: 1.0
 
 minGameVersion: 160
 
-mixin: "core.mixins.json"
+mixin: "test/core.mixins.json"
