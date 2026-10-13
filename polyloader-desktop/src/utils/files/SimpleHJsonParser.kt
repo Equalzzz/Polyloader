@@ -1,6 +1,6 @@
-package org.im.polyloader.utils
+package org.im.polyloader.utils.files
 
-import org.im.polyloader.Polyloader
+import org.im.polyloader.utils.logError
 
 // Sufficient only for most mod.hjson files, but not all
 // Moreover we assume this config is perfectly fine
@@ -30,14 +30,12 @@ class SimpleHJsonParser(private val hjson: String) {
     private fun parseMember() {
         val key : String = if (next() == '\'' || next() == '\"')
             parseJsonString() else parseQuotelessString(true)
-        //Polyloader.log.debug("Got key: \'$key\'")
         skip()
         if (next() != ':')
             error("Found non-valid member in hjson file")
         pos++
         skip()
         val value = parseValue()
-        //Polyloader.log.debug("Got value: \'$value\'")
         data[key] = value
     }
 
@@ -69,7 +67,7 @@ class SimpleHJsonParser(private val hjson: String) {
         try { return parseQuotelessString() }
         catch (e: Exception)
         {
-            Polyloader.log.error(e)
+            logError(e)
             pos = startPos
         }
         error("Could not parse token as string")
@@ -81,7 +79,6 @@ class SimpleHJsonParser(private val hjson: String) {
         while (!eof) {
             if (next() == '\'' && next(1) == '\'' && next(2) == '\'') {
                 pos += 3 // skip last '''
-                //Polyloader.log.debug("Parsed multiline string: \'$sb\'")
                 return sb.toString()
             }
             pos++
@@ -98,7 +95,6 @@ class SimpleHJsonParser(private val hjson: String) {
             when (next()) {
                 quotation -> {
                     pos++ // skip last quotation
-                    //Polyloader.log.debug("Parsed json string: \'$sb\'")
                     return sb.toString()
                 }
                 '\\' -> when (next(1)) {
@@ -132,7 +128,6 @@ class SimpleHJsonParser(private val hjson: String) {
                 while (!eof) {
                     if ("\n".contains(next()) || (expectKey && ",:[]{} ".contains(next()))) {
                         if (!expectKey) pos++
-                        //Polyloader.log.debug("Parsed quoteless string: $sb")
                         return sb.toString()
                     }
                     sb.append(next())

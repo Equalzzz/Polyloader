@@ -1,4 +1,4 @@
-package org.im.polyloader.utils
+package org.im.polyloader.utils.files
 
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json

@@ -1,4 +1,4 @@
-package org.im.polyloader.utils
+package org.im.polyloader.utils.arc.compat
 
 import org.im.polyloader.Polyloader
 import java.io.BufferedInputStream

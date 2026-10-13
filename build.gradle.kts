@@ -11,7 +11,7 @@ kotlin {
     jvmToolchain(libs.versions.java.get().toInt())
 }
 
-tasks.register("Run Game") {
+tasks.register("DesktopBuildAndRun") {
     dependsOn(tasks.build)
     doLast {
         println("TEST!!!!!!")

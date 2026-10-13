@@ -1,4 +1,4 @@
-package org.im.polyloader.utils
+package org.im.polyloader.utils.arc.compat
 
 // Ruthlessly ripped from Arc core (NO ANDROID SUPPORT)
 object ArcOS {
