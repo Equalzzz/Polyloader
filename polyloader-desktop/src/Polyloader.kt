@@ -22,7 +22,6 @@ import java.io.IOException
 import java.nio.file.Paths
 import java.util.*
 import java.util.logging.*
-import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 
 
@@ -45,9 +44,10 @@ object Polyloader {
     const val DEFAULT_LOGGER_FORMAT = $$"[%4$.1s] [Polyloader] %5$s%6$s%n" // [first letter of 'LOG_LEVEL'] [Polyloader] 'msg' 'stacktrace'
 
     val log: Logger = Logger.getLogger(this::class.java.name)
-    // We are typically in '../Polyloader/jre/bin/' path
+    // We are typically in '../Polyloader/jre' path
     // Lets get just '../Polyloader/' directory
-    val polyloaderDirectory : File = Paths.get("").toAbsolutePath().parent.parent.toFile()
+    val polyloaderDirectory : File = Paths.get("").toAbsolutePath().parent.toFile()
+    val polyloaderCore : File = File(polyloaderDirectory, "jre/polyloader-coreDesktop.jar")
     val mindustryDataDirectory : File = File(ArcOS.getAppDataDirectoryString("Mindustry"))
 
     init {
@@ -97,11 +97,7 @@ object Polyloader {
 
         Mixins.addConfiguration("polyloader-test.mixins.json")
 
-        val f = File(polyloaderDirectory, "jre/polyloader-coreDesktop.jar")
-        debug(f.absolutePath)
-
-        loadModModifiers(f)
-
+        loadModModifiers(polyloaderCore)
         mindustryDataDirectory.resolve("mods").listFiles()?.forEach {
             loadModModifiers(it)
         }
@@ -287,7 +283,6 @@ object Polyloader {
                         ${polyloaderDirectory.parentFile.absolutePath}
                         ${polyloaderDirectory.parentFile.listFiles()?.filter { it.isDirectory }?.joinToString {"\n"} ?: ""}
                         """
-                    warn(msg)
                     error(msg)
                     // TODO:
                     // Display a dialog box, informing on how to fix the issue

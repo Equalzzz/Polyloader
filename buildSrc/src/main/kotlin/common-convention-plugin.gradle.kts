@@ -6,7 +6,6 @@ plugins {
 
 val libs = versionCatalogs.find("libs").get()
 val version = libs.findVersion("mindustry").get().toString()
-println(version)
 repositories {
     //Downloads the dependencies JAR file from Mindustry releases; does not use any real repository. Surprisingly, this is the most reliable option.
     ivy {

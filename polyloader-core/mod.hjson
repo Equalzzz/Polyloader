@@ -10,6 +10,6 @@ description: "Polyloader core, that adds a lot of cool stuff for every aspect of
 
 version: 1.0
 
-minGameVersion: 160
+minGameVersion: 159.7
 
 mixin: "test/core.mixins.json"

@@ -34,12 +34,11 @@ tasks.shadowJar {
     archiveBaseName.set(project.name)
     archiveVersion.set("")
     manifest {
+        attributes["Enable-Native-Access"] = "ALL-UNNAMED"
         attributes["Main-Class"] = "org.im.polyloader.Polyloader"
     }
 }
 
-// I don't know if it's necessary
-// TODO: figure out what this does
 tasks.jar {
     dependsOn(tasks.shadowJar)
 }
@@ -49,12 +48,11 @@ val copyJar = tasks.register<Copy>("copyJar") {
     dependsOn(tasks.shadowJar)
     from(tasks.shadowJar)
     val dir = properties["polyloader-directory"] as String + "/jre"
-    println("Copying ${project.name} to $dir")
     into(dir)
 }
 
 // Custom task for quickly testing if desktop project even runs
-tasks.register<Exec>("buildAndRun") {
+tasks.register<Exec>("LauncherBuildAndRun") {
     dependsOn(copyJar)
     val dir = properties["polyloader-directory"] as String + "/jre"
     val cmd = "${dir}/bin/java -jar ../${project.name}.jar"
