@@ -37,13 +37,13 @@ jobs:
         include:
           - os: windows-latest
             ext: zip
-            output_name: "[Windows]Polyloader"
+            output_name: "Windows-Polyloader"
           - os: ubuntu-latest
             ext: tar.gz
-            output_name: "[Linux]Polyloader"
+            output_name: "Linux-Polyloader"
           - os: macos-latest
             ext: tar.gz
-            output_name: "[MacOS]Polyloader"
+            output_name: "MacOS-Polyloader"
     steps:
       - uses: actions/checkout@v7
       - name: Download Polyloader Jar
