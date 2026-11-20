@@ -80,7 +80,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: deploy-${{ matrix.os_label }}
-          path: '[${{ matrix.os_label }}]${{ matrix.output_name }}.${{ matrix.ext }}'
+          path: '[[]${{ matrix.os_label }}]${{ matrix.output_name }}.${{ matrix.ext }}'
   release:
     needs: deploy
     runs-on: ubuntu-latest
