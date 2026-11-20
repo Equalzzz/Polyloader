@@ -30,7 +30,6 @@ class PolyloaderMixinService : MixinServiceAbstract() {
     }
 
     override fun getClassTracker(): IClassTracker? {
-        debug("getClassTracker() was called")
         return null
     }
 

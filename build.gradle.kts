@@ -4,13 +4,11 @@ import org.gradle.internal.extensions.stdlib.capitalized
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
-    //alias(libs.plugins.launch4j)
-    //alias(libs.plugins.download)
 }
 
 allprojects {
     group = "org.im.polyloader"
-    version = "1.0-SNAPSHOT"
+    version = "1.0.0"
 }
 
 kotlin {
@@ -18,36 +16,50 @@ kotlin {
 }
 
 val build = layout.buildDirectory.get()
+val modules = build.dir("modules")
 val buildName = rootProject.name.capitalized()
-tasks.register("localBuild") {
-    dependsOn(":polyloader-desktop:jar", ":polyloader-core:jar")
+
+// Cache known tasks
+evaluationDependsOn(":polyloader-desktop")
+evaluationDependsOn(":polyloader-core")
+val polyloaderDesktopJar = project(":polyloader-desktop").tasks.named("shadowJar")
+val polyloaderCoreJar = project(":polyloader-core").tasks.jar
+
+// Copies :jar results from subprojects to /modules build directory
+val prepareBuild = tasks.register("prepareBuild") {
+    dependsOn(polyloaderDesktopJar, polyloaderCoreJar)
     group = "build"
     doLast {
-        val targetDir = file(build).resolve("${rootProject.name.capitalized()}/jre")
-        if (targetDir.exists())
-            targetDir.deleteRecursively()
-        targetDir.mkdirs()
         copy {
-            from(project(":polyloader-desktop").tasks.named("shadowJar"))
-            from(project(":polyloader-core").tasks.jar)
-            into(targetDir)
+            from(polyloaderDesktopJar)
+            from(polyloaderCoreJar)
+            into(modules)
         }
     }
 }
 
-tasks.register<JavaExec>("LocalBuildAndRun") {
-    dependsOn("localBuild")
+// Creates and runs a local build of this project. Used only for testing and debugging
+tasks.register<JavaExec>("localBuildAndRun") {
+    dependsOn(prepareBuild)
     group = "build"
     val targetDir = file(build).resolve(buildName)
-    workingDir = targetDir.resolve("jre")
+    workingDir = targetDir
     mainClass.set("org.im.polyloader.Polyloader")
     doFirst {
+        if (targetDir.exists())
+            targetDir.deleteRecursively()
+        val executablesDir = targetDir.resolve("app")
+        executablesDir.mkdirs()
+        copy {
+            from(modules)
+            into(executablesDir)
+        }
         val mindustryConfigProperty = properties["game-config"] ?:
-        error("game-config gradle property must be set for local build to run")
+            error("game-config gradle property must be set for local build to run")
         val configFile = targetDir.resolve("$buildName.json")
         val config = mapOf("mindustryConfigFile" to mindustryConfigProperty.toString())
         val configString = JsonOutput.prettyPrint(JsonOutput.toJson(config))
         configFile.writeText(configString)
     }
-    classpath = files(targetDir.resolve("jre/${project(":polyloader-desktop").name}.jar"))
+    classpath = files(targetDir.resolve("app/${project(":polyloader-desktop").name}.jar"))
 }

@@ -1,8 +1,11 @@
+//import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
 plugins {
     kotlin("jvm")
     id("common-convention-plugin")
     alias(libs.plugins.shadow) // for shadowJar task
     alias(libs.plugins.serialization) // for automatic 'serializer()' code gen
+    //alias(libs.plugins.compose)
 }
 
 dependencies {
@@ -27,6 +30,18 @@ sourceSets.main {
     // In /res/ lies service declaration overloads, so ServiceLoader could find them
     resources.srcDir("res")
 }
+//compose.desktop {
+//    application {
+//        mainClass = "MainKt"
+//        nativeDistributions {
+//            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+//            packageName = "ASDASDHOI"
+//            packageVersion = "1.0.0"
+//
+//            includeAllModules = true
+//        }
+//    }
+//}
 
 // this thing bundles every dependency inside a single jar file, so called 'shadowJar'
 tasks.shadowJar {

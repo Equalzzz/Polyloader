@@ -38,15 +38,4 @@ public class ModsMixin {
     private Seq<Fi> injectCandidates(Seq<Fi> candidates) {
         return new Seq<>(new Fi[] { new Fi(Polyloader.INSTANCE.getPolyloaderCore()) });
     }
-
-    /*
-    I don't know if it's necessary or not
-    @Redirect(
-            method = "loadMod",
-            at = @At(
-                    value = "INVOKE",
-                    target = "mindustry/mod/ModClassLoader.addChild (Ljava/lang/ClassLoader;)V")
-    )
-    private void redirectLoadMod(ModClassLoader instance, ClassLoader child) {}
-    */
 }

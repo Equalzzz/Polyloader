@@ -23,6 +23,8 @@ import java.nio.file.Paths
 import java.util.*
 import java.util.logging.*
 import java.util.zip.ZipInputStream
+import javax.swing.JOptionPane
+import javax.swing.UIManager
 
 
 @Serializable
@@ -44,10 +46,9 @@ object Polyloader {
     const val DEFAULT_LOGGER_FORMAT = $$"[%4$.1s] [Polyloader] %5$s%6$s%n" // [first letter of 'LOG_LEVEL'] [Polyloader] 'msg' 'stacktrace'
 
     val log: Logger = Logger.getLogger(this::class.java.name)
-    // We are typically in '../Polyloader/jre' path
-    // Lets get just '../Polyloader/' directory
-    val polyloaderDirectory : File = Paths.get("").toAbsolutePath().parent.toFile()
-    val polyloaderCore : File = File(polyloaderDirectory, "jre/polyloader-coreDesktop.jar")
+    // We are in '../Polyloader/' path
+    val polyloaderDirectory : File = Paths.get("").toAbsolutePath().toFile()
+    val polyloaderCore : File = File(polyloaderDirectory, "app/polyloader-coreDesktop.jar")
     val mindustryDataDirectory : File = File(ArcOS.getAppDataDirectoryString("Mindustry"))
 
     init {
@@ -67,54 +68,48 @@ object Polyloader {
 
     @JvmStatic
     fun main(args: Array<String>) {
-        info("Initializing Polyloader")
-        // Finds a valid config with all the info about where mindustry is
-        polyloaderConfig = getLoaderConfig(polyloaderDirectory)
+        try {
+            info("Initializing Polyloader")
+            // Finds a valid config with all the info about where mindustry is
+            polyloaderConfig = getLoaderConfig(polyloaderDirectory)
+            // Finds a valid config with all data on how to launch mindustry
+            // todo: it doesn't work on other platforms rn, FIX IT
+            gameConfig = getGameConfig(polyloaderConfig)
+            // Tries to cache paths and actualize data in polyloader config
+            simplifyLoaderConfigData(polyloaderConfig, gameConfig)
+            // Gets mindustry desktop.jar file
+            mindustryExecutable = File(gameConfig.file.absolutePath).parentFile.resolve(gameConfig.data.classPath.first())
+            // TODO:
+            // 2. Get all mod mixins configs
+            // 3.5? Apply access wideners
+            // minor things:
+            // Add icon and a name to the java process
+            // Make a way to tell apart modified and unmodified versions (apart from adding THE CORE)
 
-        // Finds a valid config with all data on how to launch mindustry
-        gameConfig = getGameConfig(polyloaderConfig)
+            // Loads Mindustry's settings to know beforehand if some mods are disabled
+            loadSettings()
 
-        // Tries to cache paths and actualize data in polyloader config
-        simplifyLoaderConfigData(polyloaderConfig, gameConfig)
+            initMixins()
 
-        // Gets mindustry desktop.jar file
-        mindustryExecutable = File(gameConfig.file.absolutePath).parentFile.resolve(gameConfig.data.classPath.first())
-        // TODO:
-        // 2. Get all mod mixins configs
-        // 3.5? Apply access wideners
-        // minor things:
-        // Add icon and a name to the java process
-        // Make a way to tell apart modified and unmodified versions (apart from adding THE CORE)
+            openGame()
+            classLoader.close()
+        }
+        catch (e: Exception) {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName())
+            JOptionPane.showMessageDialog(null, e.message, "Polyloader Error", JOptionPane.ERROR_MESSAGE)
+        }
+    }
 
-        loadSettings()
-
+    fun initMixins() {
         classLoader = PolyloaderClassLoader(arrayOf(mindustryExecutable.toURI().toURL()), Polyloader::class.java.classLoader)
-
-
         MixinBootstrap.init()
         MixinEnvironment.getDefaultEnvironment().setSide(MixinEnvironment.Side.CLIENT).activeTransformer
         classLoader.addTransformer(PolyloaderMixinTransformer())
-
         Mixins.addConfiguration("polyloader-test.mixins.json")
-
         loadModModifiers(polyloaderCore)
         mindustryDataDirectory.resolve("mods").listFiles()?.forEach {
             loadModModifiers(it)
         }
-
-        (MixinService.getService() as PolyloaderMixinService).onGameStart()
-
-        val mindustryMainClass = classLoader.loadClass("mindustry.desktop.DesktopLauncher")
-        val mindustryMainMethod = mindustryMainClass.getDeclaredMethod("main", Array<String>::class.java)
-
-
-        System.out.flush()
-        mindustryMainMethod.invoke(null, emptyArray<String>())
-
-
-
-
-        classLoader.close()
     }
 
     fun loadSettings() {
@@ -181,8 +176,16 @@ object Polyloader {
         }
     }
 
-    // That doesn't really do what I wanted yet
     private fun openGame() {
+        (MixinService.getService() as PolyloaderMixinService).onGameStart()
+        val mindustryMainClass = classLoader.loadClass("mindustry.desktop.DesktopLauncher")
+        val mindustryMainMethod = mindustryMainClass.getDeclaredMethod("main", Array<String>::class.java)
+        System.out.flush()
+        mindustryMainMethod.invoke(null, emptyArray<String>())
+    }
+
+    // Opens a game by regular means, unsure if I want it to be here, but rn it's
+    private fun openGameAsProcess() {
         val cmd = ArrayList<String>(8)
         cmd.add(System.getProperty("java.home") + File.separator + "bin" + File.separator + "java" + (if (ArcOS.isWindows) ".exe" else ""))
         if (ArcOS.isMac)
@@ -221,7 +224,7 @@ object Polyloader {
     }
 
     // Gets game config file using polyloader config file, or tries to find it somewhere near
-    // or just throws an error if everything fails, while having no idea, where game files might be
+    // or just throws an error if everything fails while having no idea where game files might be
     private fun getGameConfig(loaderConfig: JsonConfig<PolyloaderConfigData>) : JsonConfig<GameConfigData> {
         // Regularly we have a path to loader config like /Polyloader/Polyloader.json
         // But to get the directory instead (to resolve it against given path), we use .parentFile
@@ -258,8 +261,8 @@ object Polyloader {
                         }
                     }
                     // 4. Try to find it inside siblings, but we try to find any mindustry.json file in
-                    polyloaderDirectory.parentFile.listFiles()?.filter { it -> it.isDirectory && it?.listFiles()!!.any { it.name.lowercase().contains("mindustry") }} ?. forEach {
-                        gameConfig = findClosestJson<GameConfigData>(it)
+                    polyloaderDirectory.parentFile.listFiles()?.filter { it.isDirectory && (it.listFiles() != null) && it.listFiles()?.any { sample -> sample.name.lowercase().contains("mindustry") } == true } ?. forEach { file ->
+                        gameConfig = findClosestJson<GameConfigData>(file)
                         if (gameConfig != null) {
                             info("Found ${gameConfig.file.name} Mindustry config file")
                             return gameConfig
@@ -267,22 +270,22 @@ object Polyloader {
                     }
                     // 4. Cry (throw an error)
                     val msg =
-                        """
-                        Could not find game config file anywhere. Can't find the game without it
-                        HOW TO FIX:
-                            Relocate ${polyloaderDirectory.name} directory closer to Mindustry folder
-                        OR
-                            0. Find and remember path to Mindustry config file (generally called Mindustry.json, and sits inside /Mindustry/ folder, along with game's .exe file)
-                            1. Go to ${polyloaderDirectory.absolutePath}
-                            2. Open ${polyloaderConfig.file.name}
-                            3. Write a correct path to game's config file in a "${polyloaderConfig.data::mindustryConfigFile.name}" property
-                            4. Relaunch Polyloader
-                        Searched in:
-                        ${gameConfigPath.absolutePath}
-                        ${polyloaderDirectory.absolutePath}
-                        ${polyloaderDirectory.parentFile.absolutePath}
-                        ${polyloaderDirectory.parentFile.listFiles()?.filter { it.isDirectory }?.joinToString {"\n"} ?: ""}
-                        """
+                    """
+                        |Could not find game config file anywhere. Can't launch the game without it.
+                        |HOW TO FIX:
+                        |    Relocate ${polyloaderDirectory.name} directory closer to Mindustry folder
+                        |    OR
+                        |    0. Find and remember path to Mindustry config file (generally called Mindustry.json, and sits inside /Mindustry/ folder, along with game's .exe file)
+                        |    1. Go to ${polyloaderDirectory.absolutePath}
+                        |    2. Open ${polyloaderConfig.file.name}
+                        |    3. Write a correct path to game's config file in a "${polyloaderConfig.data::mindustryConfigFile.name}" property (write something like "${polyloaderConfig.data::mindustryConfigFile.name}" : "../My/Correct/Path/Mindustry/Mindustry.json")
+                        |    4. Relaunch Polyloader
+                        |Searched in:
+                        |${gameConfigPath.absolutePath}
+                        |${polyloaderDirectory.absolutePath}
+                        |${polyloaderDirectory.parentFile.absolutePath}
+                        |${polyloaderDirectory.parentFile.listFiles()?.filter { it.isDirectory }?.joinToString("\n") ?: ""}
+                    """.trimMargin()
                     error(msg)
                     // TODO:
                     // Display a dialog box, informing on how to fix the issue
@@ -296,7 +299,8 @@ object Polyloader {
     private fun simplifyLoaderConfigData(loaderConfig: JsonConfig<PolyloaderConfigData>, gameConfig: JsonConfig<GameConfigData>) {
         val previousData = loaderConfig.data
         val currentData = PolyloaderConfigData(gameConfig.file.absolutePath)
-        if (currentData != previousData && loaderConfig.file.canWrite()) {
+        if (File(currentData.mindustryConfigFile).normalize() !=
+            File(previousData.mindustryConfigFile).normalize() && loaderConfig.file.canWrite()) {
             val json = Json {
                 ignoreUnknownKeys = true
                 prettyPrint = true
