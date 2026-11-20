@@ -37,13 +37,13 @@ jobs:
         include:
           - os: windows-latest
             ext: zip
-            output_name: "Windows-Polyloader"
+            output_name: "\[Windows\]Polyloader"
           - os: ubuntu-latest
             ext: tar.gz
-            output_name: "Linux-Polyloader"
+            output_name: "\[Linux\]Polyloader"
           - os: macos-latest
             ext: tar.gz
-            output_name: "MacOS-Polyloader"
+            output_name: "\[MacOS\]Polyloader"
     steps:
       - uses: actions/checkout@v7
       - name: Download Polyloader Jar
@@ -65,6 +65,7 @@ jobs:
             --name Polyloader \
             --main-class org.im.polyloader.Polyloader \
             --main-jar polyloader-desktop.jar \
+            --jlink-options "--strip-debug --no-man-pages --no-header-files --compress=2"
             --dest deploy
       - name: Linux/Macos Archive
         if: runner.os != 'Windows'
