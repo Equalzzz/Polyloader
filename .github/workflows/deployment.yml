@@ -3,7 +3,7 @@ name: Deployment
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch: # for debugging purposes
 
 jobs:
@@ -14,9 +14,9 @@ jobs:
       - name: Setup JDK 17
         uses: actions/setup-java@v6
         with:
-          java-version: "17"
-          distribution: "temurin"
-          cache: "gradle"
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
       - name: Build
         run: |
           chmod +x ./gradlew
@@ -37,13 +37,16 @@ jobs:
         include:
           - os: windows-latest
             ext: zip
-            output_name: "\[Windows\]Polyloader"
+            os_label: Windows
+            output_name: 'Polyloader'
           - os: ubuntu-latest
             ext: tar.gz
-            output_name: "\[Linux\]Polyloader"
+            os_label: Linux
+            output_name: 'Polyloader'
           - os: macos-latest
             ext: tar.gz
-            output_name: "\[MacOS\]Polyloader"
+            os_label: MacOS
+            output_name: 'Polyloader'
     steps:
       - uses: actions/checkout@v7
       - name: Download Polyloader Jar
@@ -54,8 +57,8 @@ jobs:
       - name: Setup JDK 17
         uses: actions/setup-java@v6
         with:
-          java-version: "17"
-          distribution: "temurin"
+          java-version: '17'
+          distribution: 'temurin'
       - name: JPackage
         shell: bash
         run: |
@@ -69,15 +72,15 @@ jobs:
             --dest deploy
       - name: Linux/Macos Archive
         if: runner.os != 'Windows'
-        run: tar -czvf ${{ matrix.output_name }}.${{ matrix.ext }} -C deploy .
+        run: tar -czvf "[${{ matrix.os_label }}]${{ matrix.output_name }}.${{ matrix.ext }}" -C deploy .
       - name: Windows Archive
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path deploy/Polyloader -DestinationPath ${{ matrix.output_name }}.${{ matrix.ext }}
+        run: Compress-Archive -Path deploy/Polyloader -DestinationPath [${{ matrix.os_label }}]${{ matrix.output_name }}.${{ matrix.ext }}
       - name: Upload Archives
         uses: actions/upload-artifact@v7
         with:
-          name: deploy-${{ matrix.output_name }}
-          path: ${{ matrix.output_name }}.${{ matrix.ext }}
+          name: deploy-${{ matrix.os_label }}
+          path: '[${{ matrix.os_label }}]${{ matrix.output_name }}.${{ matrix.ext }}'
   release:
     needs: deploy
     runs-on: ubuntu-latest
