@@ -13,7 +13,7 @@ dependencies {
     //implementation(libs.bundles.serialization) // [h]json manipulation
 
     // Mixin dependencies
-    api(libs.mixin) // actually don't know if it should be api or implementation... todo find out
+    implementation(libs.mixin) // actually don't know if it should be api or implementation... todo find out
     implementation(libs.log4j.api)
     runtimeOnly(libs.log4j.core)
     implementation(libs.guava.jre)
