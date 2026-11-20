@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
+  workflow_dispatch: # for debugging purposes
 
 jobs:
   build:
@@ -20,7 +20,7 @@ jobs:
       - name: Build
         run: |
           chmod +x ./gradlew
-          ./gradlew :polyloader-desktop:shadowJar
+          ./gradlew :polyloader-desktop:shadowJar --no-daemon
       - name: Upload JARs
         uses: actions/upload-artifact@v7
         with:
@@ -56,7 +56,6 @@ jobs:
         with:
           java-version: "17"
           distribution: "temurin"
-          cache: "gradle"
       - name: JPackage
         shell: bash
         run: |
@@ -69,7 +68,7 @@ jobs:
             --dest deploy
       - name: Linux/Macos Archive
         if: runner.os != 'Windows'
-        run: tar -czvf ../${{ matrix.output_name }}.${{ matrix.ext }} -C deploy Polyloader
+        run: tar -czvf ${{ matrix.output_name }}.${{ matrix.ext }} -C deploy .
       - name: Windows Archive
         if: runner.os == 'Windows'
         run: Compress-Archive -Path deploy/Polyloader -DestinationPath ${{ matrix.output_name }}.${{ matrix.ext }}
