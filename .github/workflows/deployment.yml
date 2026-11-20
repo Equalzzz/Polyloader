@@ -86,8 +86,8 @@ jobs:
       - name: Download Releases
         uses: actions/download-artifact@v8
         with:
-          name: deploy-*
           path: releases
+          pattern: deploy-*
           merge-multiple: true
       - name: Upload Releases
         uses: softprops/action-gh-release@v3
