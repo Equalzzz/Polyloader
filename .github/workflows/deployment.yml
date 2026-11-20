@@ -68,7 +68,7 @@ jobs:
             --name Polyloader \
             --main-class org.im.polyloader.Polyloader \
             --main-jar polyloader-desktop.jar \
-            --jlink-options "--strip-debug --no-man-pages --no-header-files" \
+            --add-modules java.se,jdk.crypto.ec, jdk.unsupported, jdk.zipfs,jdk.localedata \
             --dest deploy
       - name: Linux/Macos Archive
         if: runner.os != 'Windows'
