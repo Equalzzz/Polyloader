@@ -45,6 +45,7 @@ jobs:
             ext: tar.gz
             output_name: "[MacOS]Polyloader"
     steps:
+      - uses: actions/checkout@v7
       - name: Download Polyloader Jar
         uses: actions/download-artifact@v8
         with:
