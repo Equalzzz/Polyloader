@@ -72,7 +72,7 @@ jobs:
             --main-class org.im.polyloader.Polyloader \
             --main-jar polyloader-desktop.jar \
             --add-modules java.base,java.compiler,java.desktop,java.instrument,java.management,java.naming,java.rmi,java.scripting,java.sql,jdk.unsupported \
-            --icon icons/Poly.${{ matrix.icon_format }} \ 
+            --icon icons/Poly.${{ matrix.icon_format }} \
             --dest deploy
       - name: Linux/Macos Archive
         if: runner.os != 'Windows'
